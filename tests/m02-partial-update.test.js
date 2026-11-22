@@ -69,3 +69,9 @@ test('M02: agent triage uses strict structured output', () => {
   assert.ok(source.includes("nextAction:{type:'string'}"));
   assert.ok(!source.includes("text:{format:{type:'json_object'}}"));
 });
+
+test('M02: AI must not persist events in parallel storage by default', () => {
+  assert.ok(source.includes("process.env.SOAC_AGENT_EVENT_WRITES_ENABLED==='true'"));
+  assert.ok(source.includes("if(pool&&process.env.SOAC_AGENT_EVENT_WRITES_ENABLED==='true')"));
+  assert.ok(source.includes("SOAC agent audit persistence failed:"));
+});
