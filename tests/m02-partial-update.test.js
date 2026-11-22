@@ -61,3 +61,11 @@ test('M02: status page does not claim live AI connectivity from key presence', (
   assert.ok(source.includes('CLAVE CONFIGURADA (SIN PRUEBA EN VIVO)'));
   assert.ok(!source.includes('x.openai?"CONECTADO"'));
 });
+
+test('M02: agent triage uses strict structured output', () => {
+  assert.ok(source.includes("type:'json_schema',name:'soac_lead_triage',strict:true"));
+  assert.ok(source.includes("additionalProperties:false"));
+  assert.ok(source.includes("suggestedReply:{type:'string'}"));
+  assert.ok(source.includes("nextAction:{type:'string'}"));
+  assert.ok(!source.includes("text:{format:{type:'json_object'}}"));
+});
