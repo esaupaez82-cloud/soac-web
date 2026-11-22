@@ -48,13 +48,6 @@ $('#sheet-source').href=originSheet(sourceMap.get(activeSource).sheet);
 function status(message,kind){const t=$('#live');t.replaceChildren(el('span','dot '+(kind||'')),el('span',kind==='bad'?'status-error':'',message));}
 function explain(error){let s=String(error&&error.message||error||'Error desconocido');if(s.length>350)s=s.slice(0,350);return s;}
 async function connectGoogle(){
-// In Vercel previews the project OAuth client rejects the temporary origin. Use the canonical application host instead.
-if(location.hostname.endsWith('.vercel.app') && location.hostname!=='soac-web-clasa-demo.vercel.app'){
- const canonical='https://soac-web-clasa-demo.vercel.app/modulo-02.html';
- status('Este enlace temporal no está autorizado para Google. Abriendo el dominio principal existente…');
- window.location.assign(canonical);
- return;
-}
 try{
  status('Preparando la autorización de lectura…');
  const r=await fetch('/firebase-applet-config.json',{cache:'no-store',credentials:'same-origin'});if(!r.ok)throw Error('No se pudo leer la configuración existente de identidad.');
