@@ -19,3 +19,8 @@ test('M02: missing status must not reopen a sold or closed contact', () => {
   assert.ok(source.includes('status=case when $11::boolean then excluded.status else soac_contacts.status end'));
   assert.ok(source.includes('Boolean(b.status)'));
 });
+
+test('M02: database failure returns controlled response instead of crashing', () => {
+  assert.ok(source.includes("r.status(503).json({error:'No se pudo guardar el expediente."));
+  assert.ok(source.includes("console.error('SOAC contact persistence failed:'"));
+});
