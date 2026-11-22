@@ -1,6 +1,10 @@
 import { chromium } from 'playwright';
+import { existsSync } from 'node:fs';
+const installed=['/usr/bin/google-chrome','/usr/bin/google-chrome-stable','/opt/google/chrome/chrome','/usr/bin/chromium','/usr/bin/chromium-browser'].find(existsSync);
+if(!installed)throw Error('Runner does not have a browser executable');
+console.log('Using system Chromium-family browser');
 const sites=['https://soac-web-clasa-demo.vercel.app/modulo-02.html','https://soac-web-clasa-demo-esaupaez82-3688.vercel.app/modulo-02.html'];
-const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
+const browser=await chromium.launch({executablePath:installed,headless:true,args:['--no-sandbox']});
 try {
  for(const site of sites){
   const context=await browser.newContext({locale:'es-MX'});
