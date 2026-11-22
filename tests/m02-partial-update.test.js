@@ -27,7 +27,7 @@ test('M02: database failure returns controlled response instead of crashing', ()
 
 test('M02: folio lookup is protected and uses parameterized SQL', () => {
   assert.ok(source.includes("app.get('/api/contacts/:folio'"));
-  assert.ok(source.includes("q.headers['x-soac-token']"));
+  assert.ok(source.includes("app.get('/api/contacts/:folio',requireOpsToken,"));
   assert.ok(source.includes("where folio=$1 limit 1"));
   assert.ok(source.includes("[q.params.folio]"));
   assert.ok(source.includes("'Cache-Control','no-store'"));
@@ -50,4 +50,14 @@ test('M02: agent does not claim appointment availability or live AI connection',
   assert.ok(!source.includes("process.env.OPENAI_MODEL||'gpt-5.6-luna'"));
   assert.ok(source.includes('Revisaremos los horarios disponibles antes de confirmar tu cita.'));
   assert.ok(source.includes('openaiConfigured:hasAI'));
+});
+
+test('M02: folio lookup shares token authentication with writes', () => {
+  assert.ok(source.includes("app.get('/api/contacts/:folio',requireOpsToken,"));
+  assert.ok(source.includes("app.post('/api/contacts',requireOpsToken,"));
+});
+
+test('M02: status page does not claim live AI connectivity from key presence', () => {
+  assert.ok(source.includes('CLAVE CONFIGURADA (SIN PRUEBA EN VIVO)'));
+  assert.ok(!source.includes('x.openai?"CONECTADO"'));
 });
