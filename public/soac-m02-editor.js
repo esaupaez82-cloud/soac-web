@@ -19,8 +19,8 @@ window.SOAC_M02_EDITOR=function({token,row,status,afterSave}){
  const n=row.__sheetRow,identity=[String(row[0]||'').trim(),String(row[1]||'').trim(),String(row[10]||'').trim()];
  const form=document.createElement('form');form.style.cssText='padding:18px;margin-top:20px;border:1px solid #596070;border-radius:12px;display:grid;gap:13px';
  form.append(node('h3','Editar ficha existente · Centro Digital'),node('p','Nombre, teléfono y folio no se pueden modificar aquí. No se crean registros nuevos.'));
- if(!Number.isInteger(n)||n&lt;7||identity.some(v=&gt;!v)){form.append(node('p','NO REGISTRADO · Ficha sin folio o identidad completa.'));detail.append(form);return}
- const controls=FIELDS.map(([i,label,max])=&gt;{
+ if(!Number.isInteger(n)||n<7||identity.some(v=>!v)){form.append(node('p','NO REGISTRADO · Ficha sin folio o identidad completa.'));detail.append(form);return}
+ const controls=FIELDS.map(([i,label,max])=>{
   const wrap=document.createElement('label');wrap.style.cssText='display:grid;gap:5px;font-weight:600';
   wrap.append(node('span',label));
   const field=document.createElement([5,9,24].includes(i)?'textarea':'input');
@@ -32,22 +32,22 @@ window.SOAC_M02_EDITOR=function({token,row,status,afterSave}){
  const save=node('button','Guardar y verificar');save.className='btn red';save.type='submit';form.append(save);
  const feedback=node('p','Cambios sin guardar');feedback.setAttribute('role','status');feedback.setAttribute('aria-live','polite');form.append(feedback);
  let saving=false;
- form.addEventListener('submit',async e=&gt;{
+ form.addEventListener('submit',async e=>{
   e.preventDefault();if(saving)return;
-  const changed=controls.map(([i,el])=&gt;[i,el.value]).filter(([i,v])=&gt;v!==String(row[i]||''));
+  const changed=controls.map(([i,el])=>[i,el.value]).filter(([i,v])=>v!==String(row[i]||''));
   if(!changed.length){feedback.textContent='No hay cambios nuevos';return}
-  const wanted=Object.fromEntries(controls.map(([i,el])=&gt;[i,el.value]));
+  const wanted=Object.fromEntries(controls.map(([i,el])=>[i,el.value]));
   if(!String(wanted[5]||'').trim()||!String(wanted[6]||'').trim()){feedback.textContent='Responsable y siguiente acción obligatorios';return}
   saving=true;save.disabled=true;feedback.textContent='Comprobando identidad, folio y cambios recientes...';
   try{
    const actual=await readRow(token,n);
-   if([0,1,10].some((i,k)=&gt;String(actual[i]||'').trim()!==identity[k]))throw Error('La identidad o el folio han cambiado. No se guardó.');
-   for(const [i] of changed){if(String(actual[i]||'')!==String(row[i]||''))throw Error('Otro usuario editó '+FIELDS.find(f=&gt;f[0]===i)[1]+'. Actualiza primero.')}
-   const body={valueInputOption:'RAW',data:changed.map(([i,v])=&gt;({range:SH+'!'+col(i)+n,majorDimension:'ROWS',values:[[v]]}))};
+   if([0,1,10].some((i,k)=>String(actual[i]||'').trim()!==identity[k]))throw Error('La identidad o el folio han cambiado. No se guardó.');
+   for(const [i] of changed){if(String(actual[i]||'')!==String(row[i]||''))throw Error('Otro usuario editó '+FIELDS.find(f=>f[0]===i)[1]+'. Actualiza primero.')}
+   const body={valueInputOption:'RAW',data:changed.map(([i,v])=>({range:SH+'!'+col(i)+n,majorDimension:'ROWS',values:[[v]]}))};
    feedback.textContent='Guardando en la hoja oficial...';
    await api(base+'/values:batchUpdate',token,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
    const verified=await readRow(token,n);
-   if([0,1,10].some((i,k)=&gt;String(verified[i]||'').trim()!==identity[k])||changed.some(([i,v])=&gt;String(verified[i]||'')!==v))throw Error('Escritura enviada, pero relectura no coincide. Revisar antes de reintentar.');
+   if([0,1,10].some((i,k)=>String(verified[i]||'').trim()!==identity[k])||changed.some(([i,v])=>String(verified[i]||'')!==v))throw Error('Escritura enviada, pero relectura no coincide. Revisar antes de reintentar.');
    afterSave(changed);feedback.textContent='EXISTENTE ACTUALIZADO Y VERIFICADO · fila '+n;status(feedback.textContent,'good');
   }catch(err){feedback.textContent='NO REGISTRADO · '+String(err.message||err);status(feedback.textContent,'bad')}
   finally{saving=false;save.disabled=false}
