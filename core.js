@@ -41,7 +41,16 @@ app.post('/api/agent',async(q,r)=>{const b=q.body||{},message=(b.message||'').tr
  try{if(ai){const resp=await ai.responses.create({model:process.env.OPENAI_MODEL||'gpt-5.6-luna',input:[{role:'system',content:RULES},{role:'user',content:message}],text:{format:{type:'json_object'}}});result=JSON.parse(resp.output_text);result.engine='OPENAI'}else result=fallback(message);
  if(pool){try{await pool.query(`insert into soac_agent_events(folio,channel,direction,event_type,message,classification) values($1,'web','in','classified',$2,$3)`,[b.folio||null,message,result])}catch{}}
  r.json(result)}catch(e){r.status(500).json({error:e.message})}});
-app.post('/api/contacts',async(q,r)=>{const b=q.body||{};if(!b.folio)return r.status(400).json({error:'folio required'});if(!pool)return r.status(503).json({error:'DATABASE_URL pending'});
+function requireOpsToken(q,r,next){
+ const expected=process.env.SOAC_OPS_TOKEN||'';
+ const supplied=String(q.headers['x-soac-token']||'');
+ if(!expected||!supplied||supplied.length!==expected.length)return r.status(401).json({error:'Acceso restringido'});
+ const {timingSafeEqual}=requireOpsToken.crypto;
+ if(!timingSafeEqual(Buffer.from(supplied),Buffer.from(expected)))return r.status(401).json({error:'Acceso restringido'});
+ next();
+}
+requireOpsToken.crypto=await import('node:crypto');
+app.post('/api/contacts',requireOpsToken,async(q,r)=>{const b=q.body||{};if(!b.folio)return r.status(400).json({error:'folio required'});if(!pool)return r.status(503).json({error:'DATABASE_URL pending'});
  try { const x=await pool.query(`insert into soac_contacts(folio,client_name,whatsapp,operation,vehicle_interest,stage,status,owner_role,next_action,metadata) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) on conflict(folio) do update set client_name=coalesce(nullif(excluded.client_name,''),soac_contacts.client_name),whatsapp=coalesce(nullif(excluded.whatsapp,''),soac_contacts.whatsapp),operation=coalesce(nullif(excluded.operation,''),soac_contacts.operation),vehicle_interest=coalesce(nullif(excluded.vehicle_interest,''),soac_contacts.vehicle_interest),stage=coalesce(nullif(excluded.stage,''),soac_contacts.stage),status=case when $11::boolean then excluded.status else soac_contacts.status end,owner_role=coalesce(nullif(excluded.owner_role,''),soac_contacts.owner_role),next_action=coalesce(nullif(excluded.next_action,''),soac_contacts.next_action),metadata=coalesce(soac_contacts.metadata,'{}'::jsonb) || coalesce(excluded.metadata,'{}'::jsonb),updated_at=now() returning *`,[b.folio,b.clientName||'',b.whatsapp||'',b.operation||'',b.vehicle||'',b.stage||'',b.status||'ACTIVO',b.ownerRole||'',b.nextAction||'',b.metadata||{},Boolean(b.status)]);r.json(x.rows[0]); } catch (error) { console.error('SOAC contact persistence failed:', error.code || error.name || 'unknown'); r.status(503).json({error:'No se pudo guardar el expediente. Reintenta sin duplicar el folio.',folio:b.folio}); } });
 app.get('/api/contacts/:folio',async(q,r)=>{
  const expected=process.env.SOAC_OPS_TOKEN||'';
