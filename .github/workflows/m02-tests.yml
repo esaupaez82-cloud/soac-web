@@ -1,0 +1,22 @@
+name: SOAC M02 regression checks
+on:
+  push:
+    branches:
+      - fix/soac-operacion-20261121
+  pull_request:
+    paths:
+      - 'core.js'
+      - 'tests/**'
+      - '.github/workflows/m02-tests.yml'
+permissions:
+  contents: read
+jobs:
+  m02-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm ci
+      - run: npm test
