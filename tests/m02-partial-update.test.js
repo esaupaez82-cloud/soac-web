@@ -44,3 +44,10 @@ test('M02: AI errors must not reveal provider details', () => {
   assert.ok(source.includes("Servicio de IA no disponible; revisar configuración del servidor"));
   assert.ok(!source.includes("r.status(500).json({error:e.message})"));
 });
+
+test('M02: agent does not claim appointment availability or live AI connection', () => {
+  assert.ok(source.includes("process.env.OPENAI_MODEL||'gpt-4.1-mini'"));
+  assert.ok(!source.includes("process.env.OPENAI_MODEL||'gpt-5.6-luna'"));
+  assert.ok(source.includes('Revisaremos los horarios disponibles antes de confirmar tu cita.'));
+  assert.ok(source.includes('openaiConfigured:hasAI'));
+});
