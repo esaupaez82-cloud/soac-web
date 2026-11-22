@@ -14,11 +14,11 @@ No inventes datos, horarios, disponibilidad, aprobaciones ni precios.
 Una cita solo se confirma cuando el cliente acepta día y hora concretos.
 No pidas INE ni correo para cotizar o agendar.
 Cotización o viabilidad -> ESAU. Solo venta/compra directa/toma a cuenta -> YANELLI.
-Citas/reagendas/confirmaciones -> VIANEY. Cierre/validación final -> ESAU.
+Citas/reagendas/confirmaciones -> CENTRO_DIGITAL. Cierre/validación final -> ESAU.\nNo afirmes que una llamada, WhatsApp o correo fue enviado si no hay confirmación del canal.\nNo registres aprobaciones financieras sin evidencia. No inventes documentos recibidos.\nCada sugerencia de seguimiento debe identificar la siguiente acción sin modificar datos por sí sola.
 Devuelve JSON con intent, operation, vehicle, stage, ownerRole, appointmentNeeded, quoteRequested, viabilityRequested, suggestedReply, nextAction, confidence.`;
 
 function fallback(message=''){
- const m=message.toLowerCase(); let intent='CLIENTE_NUEVO',ownerRole='VIANEY',operation='POR DEFINIR';
+ const m=message.toLowerCase(); let intent='CLIENTE_NUEVO',ownerRole='CENTRO_DIGITAL',operation='POR DEFINIR';
  const quoteRequested=/cotiz|mensual|enganche|precio/.test(m), viabilityRequested=/viable|viabilidad|bur[oó]|financ|cr[eé]dito/.test(m);
  if(/reagend|otra hora|otro d[ií]a/.test(m)) intent='REAGENDA';
  else if(/confirm/.test(m)&&/cita/.test(m)) intent='CONFIRMACION';
