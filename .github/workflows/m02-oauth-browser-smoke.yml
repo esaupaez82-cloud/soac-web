@@ -18,6 +18,5 @@ jobs:
         with:
           node-version: '22'
       - run: npm install --no-save --no-package-lock playwright@1.56.1
-      - run: npx playwright install chromium
       - name: Inspect Google OAuth popup without signing in or reading client records
         run: node tests/m02-oauth-browser-smoke.mjs
