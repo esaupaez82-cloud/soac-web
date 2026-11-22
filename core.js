@@ -37,14 +37,14 @@ async function init(){
  await pool.query(`create table if not exists soac_audit(id bigserial primary key,user_name text,folio text,action text,duration_ms integer,save_ms integer,metadata jsonb default '{}'::jsonb,created_at timestamptz default now())`);
 }
 app.get('/health',async(_q,r)=>{let db=false;if(pool){try{await pool.query('select 1');db=true}catch{}}r.json({ok:true,service:'SOAC Core',openai:hasAI,database:db,sheet:Boolean(process.env.SOAC_SHEET_ID),calendar:Boolean(process.env.SOAC_CALENDAR_ID),whatsapp:'pending'});});
-app.post('/api/agent',async(q,r)=>{const b=q.body||{},message=(b.message||'').trim();if(!message)return r.status(400).json({error:'message required'});let result;
+app.post('/api/agent',requireOpsToken,async(q,r)=>{const b=q.body||{},message=(b.message||'').trim();if(!message)return r.status(400).json({error:'message required'});let result;
  try{if(ai){const resp=await ai.responses.create({model:process.env.OPENAI_MODEL||'gpt-5.6-luna',input:[{role:'system',content:RULES},{role:'user',content:message}],text:{format:{type:'json_object'}}});result=JSON.parse(resp.output_text);result.engine='OPENAI'}else result=fallback(message);
  if(pool){try{await pool.query(`insert into soac_agent_events(folio,channel,direction,event_type,message,classification) values($1,'web','in','classified',$2,$3)`,[b.folio||null,message,result])}catch{}}
- r.json(result)}catch(e){r.status(500).json({error:e.message})}});
+ r.json(result)}catch(e){r.status(503).json({error:'Servicio de IA no disponible; revisar configuración del servidor'})}});
 function requireOpsToken(q,r,next){
  const expected=process.env.SOAC_OPS_TOKEN||'';
  const supplied=String(q.headers['x-soac-token']||'');
- if(!expected||!supplied||supplied.length!==expected.length)return r.status(401).json({error:'Acceso restringido'});
+ if(!expected||!supplied||Buffer.byteLength(supplied)!==Buffer.byteLength(expected))return r.status(401).json({error:'Acceso restringido'});
  const {timingSafeEqual}=requireOpsToken.crypto;
  if(!timingSafeEqual(Buffer.from(supplied),Buffer.from(expected)))return r.status(401).json({error:'Acceso restringido'});
  next();
