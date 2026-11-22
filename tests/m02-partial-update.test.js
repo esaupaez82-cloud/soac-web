@@ -27,7 +27,7 @@ test('M02: database failure returns controlled response instead of crashing', ()
 
 test('M02: folio lookup is protected and uses parameterized SQL', () => {
   assert.ok(source.includes("app.get('/api/contacts/:folio'"));
-  assert.ok(source.includes("req.headers['x-soac-token']"));
+  assert.ok(source.includes("q.headers['x-soac-token']"));
   assert.ok(source.includes("where folio=$1 limit 1"));
   assert.ok(source.includes("[q.params.folio]"));
   assert.ok(source.includes("'Cache-Control','no-store'"));
