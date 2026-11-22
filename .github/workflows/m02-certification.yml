@@ -1,0 +1,28 @@
+name: Certificación técnica M02 - simulación sin datos reales
+on:
+  push:
+    branches:
+      - fix/m02-preview-oauth-config-20261122
+    paths:
+      - public/soac-portal.js
+      - public/soac-m02-editor.js
+      - public/firebase-applet-config.json
+      - tests/m02-web-certification.test.js
+      - .github/workflows/m02-certification.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test-m02-with-mocks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b163da27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+      - name: Syntax validation (M02 scripts)
+        run: |
+          node --check public/soac-portal.js
+          node --check public/soac-m02-editor.js
+      - name: M02 simulated read and write regression tests
+        run: node --test tests/m02-web-certification.test.js
