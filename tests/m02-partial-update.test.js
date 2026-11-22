@@ -24,3 +24,11 @@ test('M02: database failure returns controlled response instead of crashing', ()
   assert.ok(source.includes("r.status(503).json({error:'No se pudo guardar el expediente."));
   assert.ok(source.includes("console.error('SOAC contact persistence failed:'"));
 });
+
+test('M02: folio lookup is protected and uses parameterized SQL', () => {
+  assert.ok(source.includes("app.get('/api/contacts/:folio'"));
+  assert.ok(source.includes("req.headers['x-soac-token']"));
+  assert.ok(source.includes("where folio=$1 limit 1"));
+  assert.ok(source.includes("[q.params.folio]"));
+  assert.ok(source.includes("'Cache-Control','no-store'"));
+});
