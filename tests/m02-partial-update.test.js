@@ -32,3 +32,15 @@ test('M02: folio lookup is protected and uses parameterized SQL', () => {
   assert.ok(source.includes("[q.params.folio]"));
   assert.ok(source.includes("'Cache-Control','no-store'"));
 });
+
+test('M02: AI and contact writes require server-side operations token', () => {
+  assert.ok(source.includes("app.post('/api/agent',requireOpsToken,"));
+  assert.ok(source.includes("app.post('/api/contacts',requireOpsToken,"));
+  assert.ok(source.includes("Buffer.byteLength(supplied)!==Buffer.byteLength(expected)"));
+  assert.ok(source.includes("timingSafeEqual(Buffer.from(supplied),Buffer.from(expected))"));
+});
+
+test('M02: AI errors must not reveal provider details', () => {
+  assert.ok(source.includes("Servicio de IA no disponible; revisar configuración del servidor"));
+  assert.ok(!source.includes("r.status(500).json({error:e.message})"));
+});
