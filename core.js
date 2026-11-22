@@ -27,7 +27,7 @@ function fallback(message=''){
  else if(/toma a cuenta|reciben mi|cambio mi/.test(m)){intent='TOMA_A_CUENTA';ownerRole='YANELLI';operation='TOMA A CUENTA'}
  else if(quoteRequested){intent='COTIZACION';ownerRole='ESAU'}
  else if(viabilityRequested){intent='VIABILIDAD';ownerRole='ESAU';operation='COMPRA FINANCIAMIENTO'}
- return {intent,operation,vehicle:'',stage:'CONTACTO',ownerRole,appointmentNeeded:intent!=='SOLO_VENTA',quoteRequested,viabilityRequested,suggestedReply:intent==='SOLO_VENTA'?'Gracias. Yanelli revisará tu vehículo. Compártenos marca, modelo, año, kilometraje y tipo de factura.':'Con gusto te ayudamos. ¿Qué día y horario te funciona mejor entre 10:00 y 17:00?',nextAction:intent==='SOLO_VENTA'?'REVISAR OPERACIÓN':'LLEVAR A CITA',confidence:.72,engine:'SOAC_RULES'};
+ return {intent,operation,vehicle:'',stage:'CONTACTO',ownerRole,appointmentNeeded:intent!=='SOLO_VENTA',quoteRequested,viabilityRequested,suggestedReply:intent==='SOLO_VENTA'?'Gracias. Yanelli revisará tu vehículo. Compártenos marca, modelo, año, kilometraje y tipo de factura.':'Con gusto te ayudamos. ¿Qué día te gustaría visitarnos? Revisaremos los horarios disponibles antes de confirmar tu cita.',nextAction:intent==='SOLO_VENTA'?'REVISAR OPERACIÓN':'LLEVAR A CITA',confidence:.72,engine:'SOAC_RULES'};
 }
 
 async function init(){
@@ -36,9 +36,9 @@ async function init(){
  await pool.query(`create table if not exists soac_agent_events(id bigserial primary key,folio text,channel text,direction text,event_type text,message text,classification jsonb default '{}'::jsonb,created_at timestamptz default now())`);
  await pool.query(`create table if not exists soac_audit(id bigserial primary key,user_name text,folio text,action text,duration_ms integer,save_ms integer,metadata jsonb default '{}'::jsonb,created_at timestamptz default now())`);
 }
-app.get('/health',async(_q,r)=>{let db=false;if(pool){try{await pool.query('select 1');db=true}catch{}}r.json({ok:true,service:'SOAC Core',openai:hasAI,database:db,sheet:Boolean(process.env.SOAC_SHEET_ID),calendar:Boolean(process.env.SOAC_CALENDAR_ID),whatsapp:'pending'});});
+app.get('/health',async(_q,r)=>{let db=false;if(pool){try{await pool.query('select 1');db=true}catch{}}r.json({ok:true,service:'SOAC Core',openaiConfigured:hasAI,database:db,sheet:Boolean(process.env.SOAC_SHEET_ID),calendar:Boolean(process.env.SOAC_CALENDAR_ID),whatsapp:'pending'});});
 app.post('/api/agent',requireOpsToken,async(q,r)=>{const b=q.body||{},message=(b.message||'').trim();if(!message)return r.status(400).json({error:'message required'});let result;
- try{if(ai){const resp=await ai.responses.create({model:process.env.OPENAI_MODEL||'gpt-5.6-luna',input:[{role:'system',content:RULES},{role:'user',content:message}],text:{format:{type:'json_object'}}});result=JSON.parse(resp.output_text);result.engine='OPENAI'}else result=fallback(message);
+ try{if(ai){const resp=await ai.responses.create({model:process.env.OPENAI_MODEL||'gpt-4.1-mini',input:[{role:'system',content:RULES},{role:'user',content:message}],text:{format:{type:'json_object'}}});result=JSON.parse(resp.output_text);result.engine='OPENAI'}else result=fallback(message);
  if(pool){try{await pool.query(`insert into soac_agent_events(folio,channel,direction,event_type,message,classification) values($1,'web','in','classified',$2,$3)`,[b.folio||null,message,result])}catch{}}
  r.json(result)}catch(e){r.status(503).json({error:'Servicio de IA no disponible; revisar configuración del servidor'})}});
 function requireOpsToken(q,r,next){
