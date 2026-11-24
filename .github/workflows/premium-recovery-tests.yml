@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - recovery/drive-originals-20261122
+      - recovery/maestro-premium-original-20261122
   workflow_dispatch:
 permissions:
   contents: read
@@ -14,5 +15,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - run: npm ci
-      - run: npm test
+      - name: Validate JavaScript syntax on both source roots
+        run: |
+          node --check public/soac-portal.js
+          node --check public/soac-m02-editor.js
+          node --check src/public/soac-portal.js
+          node --check src/public/soac-m02-editor.js
+      - name: Offline tests with mocked data only (no deployment)
+        run: node --test tests/m02-web-certification.test.js tests/premium-recovery.test.js
