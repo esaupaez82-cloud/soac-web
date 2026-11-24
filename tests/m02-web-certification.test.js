@@ -41,6 +41,7 @@ function harness(options={}) {
     calls.push({url,opts});
     if(opts.method==='POST'){
       writes++;
+      if(options.networkWriteError) throw Error('Respuesta de red perdida');
       if(options.failWrite) return {ok:false,status:403,json:async()=>({error:{message:'Sin permiso'}})};
       for(const x of JSON.parse(opts.body).data){
         assert.match(x.range, /^'CENTRO_DIGITAL_SOAC'![A-Z]+7$/);
@@ -50,6 +51,8 @@ function harness(options={}) {
       return {ok:true,status:200,json:async()=>({totalUpdatedCells:1})};
     }
     reads++;
+    if(reads===2&&options.failReadback)return {ok:false,status:503,json:async()=>({error:{message:'Servicio temporalmente no disponible'}})};
+    if(reads===2&&options.mismatchReadback){const copy=remote.slice();copy[4]='Valor no confirmado';return {ok:true,status:200,json:async()=>({values:[copy]})};}
     return {ok:true,status:200,json:async()=>({values:[remote.slice()]})};
   };
   const context={window:{},document,fetch,console};
@@ -147,4 +150,22 @@ test('M02 does not claim saved status if Google rejects write',async()=>{
   assert.match(h.messages.at(-1).msg,/NO REGISTRADO/);
   assert.equal(h.messages.at(-1).kind,'bad');
   assert.equal(h.original[4],'Pendiente');
+});
+
+
+test('M02 never labels an acknowledged write as not registered if readback fails',async()=>{
+ const h=harness({failReadback:true});h.field('Etapa').value='Contactado';await h.save();
+ assert.equal(h.writes,1);assert.equal(h.reads,2);assert.equal(h.remote[4],'Contactado');
+ assert.equal(h.original[4],'Pendiente');assert.match(h.messages.at(-1).msg,/ESCRITURA NO VERIFICADA/);
+});
+test('M02 warns against retrying if readback differs',async()=>{
+ const h=harness({mismatchReadback:true});h.field('Etapa').value='Contactado';await h.save();
+ assert.equal(h.writes,1);assert.equal(h.reads,2);assert.match(h.messages.at(-1).msg,/ESCRITURA NO VERIFICADA/);
+});
+test('M02 does not assume a lost network response means the write failed',async()=>{
+ const h=harness({networkWriteError:true});h.field('Etapa').value='Contactado';await h.save();
+ assert.equal(h.writes,1);assert.match(h.messages.at(-1).msg,/ESCRITURA NO VERIFICADA/);
+});
+test('M02 editor is identical in both existing source roots',()=>{
+ assert.equal(source,read('src/public/soac-m02-editor.js'));
 });

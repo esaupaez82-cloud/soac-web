@@ -5,7 +5,7 @@ function col(i){let n=i+1,s='';while(n){n--;s=String.fromCharCode(65+n%26)+s;n=M
 function node(tag,text){const el=document.createElement(tag);el.textContent=text;return el}
 async function api(url,token,opts={}){
  const r=await fetch(url,{...opts,headers:{Authorization:'Bearer '+token,...(opts.headers||{})},cache:'no-store'});
- let data={};try{data=await r.json()}catch{}if(!r.ok)throw Error('Google Sheets '+r.status+': '+String(data?.error?.message||'Permiso insuficiente').slice(0,180));
+ let data={};try{data=await r.json()}catch{}if(!r.ok){const err=Error('Google Sheets '+r.status+': '+String(data?.error?.message||'Permiso insuficiente').slice(0,180));err.httpStatus=r.status;throw err;}
  return data;
 }
 const base='https://sheets.googleapis.com/v4/spreadsheets/'+ID;
@@ -39,17 +39,25 @@ window.SOAC_M02_EDITOR=function({token,row,status,afterSave}){
   const wanted=Object.fromEntries(controls.map(([i,el])=>[i,el.value]));
   if(!String(wanted[5]||'').trim()||!String(wanted[6]||'').trim()){feedback.textContent='Responsable y siguiente acción obligatorios';return}
   saving=true;save.disabled=true;feedback.textContent='Comprobando identidad, folio y cambios recientes...';
+  let phase='read-before';
   try{
    const actual=await readRow(token,n);
    if([0,1,10].some((i,k)=>String(actual[i]||'').trim()!==identity[k]))throw Error('La identidad o el folio han cambiado. No se guardó.');
    for(const [i] of changed){if(String(actual[i]||'')!==String(row[i]||''))throw Error('Otro usuario editó '+FIELDS.find(f=>f[0]===i)[1]+'. Actualiza primero.')}
    const body={valueInputOption:'RAW',data:changed.map(([i,v])=>({range:SH+'!'+col(i)+n,majorDimension:'ROWS',values:[[v]]}))};
    feedback.textContent='Guardando en la hoja oficial...';
+   phase='write';
    await api(base+'/values:batchUpdate',token,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+   phase='read-after';
    const verified=await readRow(token,n);
    if([0,1,10].some((i,k)=>String(verified[i]||'').trim()!==identity[k])||changed.some(([i,v])=>String(verified[i]||'')!==v))throw Error('Escritura enviada, pero relectura no coincide. Revisar antes de reintentar.');
    afterSave(changed);feedback.textContent='EXISTENTE ACTUALIZADO Y VERIFICADO · fila '+n;status(feedback.textContent,'good');
-  }catch(err){feedback.textContent='NO REGISTRADO · '+String(err.message||err);status(feedback.textContent,'bad')}
+  }catch(err){
+   const rejected=phase==='write'&&[400,401,403,404].includes(err.httpStatus);
+   const uncertain=phase==='read-after'||(phase==='write'&&!rejected);
+   feedback.textContent=(uncertain?'ESCRITURA NO VERIFICADA · Actualiza y revisa la ficha antes de reintentar · ':'NO REGISTRADO · ')+String(err.message||err);
+   status(feedback.textContent,'bad');
+  }
   finally{saving=false;save.disabled=false}
  });
  detail.append(form);
