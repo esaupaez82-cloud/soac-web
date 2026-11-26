@@ -55,7 +55,8 @@ try{
  if(!cfg.oAuthClientId||!cfg.oAuthClientId.endsWith('.apps.googleusercontent.com'))throw Error('Falta un cliente OAuth web válido en la configuración existente.');
  if(!window.google||!window.google.accounts||!window.google.accounts.oauth2)throw Error('El servicio de autenticación de Google no cargó. Comprueba bloqueo de ventanas y vuelve a abrir.');
  if(!client)client=window.google.accounts.oauth2.initTokenClient({client_id:cfg.oAuthClientId,scope:code==='02'?'https://www.googleapis.com/auth/spreadsheets':'https://www.googleapis.com/auth/spreadsheets.readonly',callback:(resp)=>{if(resp&&resp.access_token){accessToken=resp.access_token;$('#refresh').disabled=false;$('#login').textContent='Reconectar Google';loadData()}else{accessToken=null;status('Google no concedió permiso de lectura: '+explain(resp&&resp.error||'solicitud cancelada'),'bad')}}});
- client.requestAccessToken({prompt:'consent'});
+ // Reutiliza el consentimiento concedido; Google solicita autorización si es necesaria.
+ client.requestAccessToken({prompt:''});
 }catch(e){status(explain(e),'bad');}
 }
 async function loadData(){
