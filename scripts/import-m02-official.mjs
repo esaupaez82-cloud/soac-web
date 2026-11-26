@@ -58,6 +58,10 @@ async function main() {
 }
 
 main().catch(error => {
-  console.error('Importación sin confirmar. Código:', error.code || error.name);
+  const response = error.response?.data?.error;
+  const reason = response?.details?.find(item => item.reason)?.reason || response?.errors?.[0]?.reason;
+  const allowed = new Set(['SERVICE_DISABLED','accessNotConfigured','PERMISSION_DENIED','forbidden',
+    'ACCESS_TOKEN_SCOPE_INSUFFICIENT','CONSUMER_INVALID','USER_PROJECT_DENIED','IAM_PERMISSION_DENIED']);
+  console.error('Importación sin confirmar. Código:', allowed.has(reason) ? reason : (error.code || error.name));
   process.exitCode = 1;
 });
