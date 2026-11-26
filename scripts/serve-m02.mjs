@@ -1,4 +1,6 @@
 import express from 'express';
+import {execFile} from 'node:child_process';
+import {fileURLToPath} from 'node:url';
 import auth from '../api/auth.js';
 import m02 from '../api/m02.js';
 import {database} from '../lib/m02-providers.js';
@@ -27,3 +29,20 @@ async function checkPrivateDatabase() {
   }
 }
 if (process.env.RENDER === 'true') void checkPrivateDatabase();
+
+if (process.env.RENDER === 'true' && process.env.SOAC_M02_RUN_IMPORT === 'true') {
+  const script = fileURLToPath(new URL('./import-m02-official.mjs', import.meta.url));
+  execFile(process.execPath, [script], {timeout:180000}, (error, stdout, stderr) => {
+    if (error) {
+      const code = /Código: ([A-Za-z0-9_]+)/.exec(stderr)?.[1] || 'unknown';
+      console.log('M02 import stopped: ' + code);
+      return;
+    }
+    try {
+      const {counts, clearedInvalidPhones, alreadyImported} = JSON.parse(stdout);
+      console.log('M02 import verified: ' + JSON.stringify({counts, clearedInvalidPhones, alreadyImported}));
+    } catch {
+      console.log('M02 import result could not be verified');
+    }
+  });
+}
