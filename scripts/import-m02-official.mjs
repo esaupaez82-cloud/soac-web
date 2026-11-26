@@ -14,7 +14,18 @@ async function main() {
   if (!['postgres:', 'postgresql:'].includes(url.protocol) || url.hostname !== destination) {
     throw new Error('El destino no coincide con la URL interna de la base oficial.');
   }
-  const credentials = JSON.parse(process.env.SOAC_M02_IMPORT_GOOGLE_JSON);
+  const raw = process.env.SOAC_M02_IMPORT_GOOGLE_JSON.trim();
+  let credentials;
+  try { credentials = JSON.parse(raw); }
+  catch {
+    const code = !raw.startsWith('{') ? 'GOOGLE_JSON_MISSING_OPEN_BRACE'
+      : !raw.endsWith('}') ? 'GOOGLE_JSON_MISSING_CLOSE_BRACE' : 'GOOGLE_JSON_INVALID';
+    throw Object.assign(new Error('Credencial inválida.'), {code});
+  }
+  if (credentials?.type !== 'service_account' || typeof credentials.private_key !== 'string' ||
+      typeof credentials.client_email !== 'string') {
+    throw Object.assign(new Error('Archivo de cuenta de servicio inválido.'), {code:'GOOGLE_JSON_WRONG_TYPE'});
+  }
   const auth = await new GoogleAuth({
     credentials, scopes:['https://www.googleapis.com/auth/spreadsheets.readonly']
   }).getClient();
