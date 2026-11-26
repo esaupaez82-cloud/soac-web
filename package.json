@@ -6,13 +6,16 @@
   "scripts": {
     "start": "node core.js",
     "start:core": "node core.js",
-    "test": "node --test tests/*.test.js"
+    "test": "node --test tests/*.test.js",
+    "start:m02": "node scripts/serve-m02.mjs"
   },
   "engines": {
     "node": ">=20"
   },
   "dependencies": {
     "express": "5.1.0",
+    "firebase-admin": "13.6.0",
+    "google-auth-library": "10.3.0",
     "openai": "5.20.0",
     "pg": "8.16.3"
   }
