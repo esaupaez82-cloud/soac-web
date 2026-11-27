@@ -46,3 +46,35 @@ if (process.env.RENDER === 'true' && process.env.SOAC_M02_RUN_IMPORT === 'true')
     }
   });
 }
+
+async function checkFirebaseAdmin() {
+  const credentialJson = process.env.SOAC_FIREBASE_ADMIN_JSON;
+  if (!credentialJson) return;
+  let credential;
+  let web;
+  try {
+    credential = JSON.parse(credentialJson.trim());
+    web = JSON.parse(process.env.SOAC_FIREBASE_WEB_CONFIG_JSON);
+  } catch {
+    console.log('M02 Firebase: invalid JSON');
+    return;
+  }
+  if (credential.project_id !== 'soac-centro-digital-acceso' || web.projectId !== credential.project_id) {
+    console.log('M02 Firebase: project mismatch');
+    return;
+  }
+  try {
+    const {cert, initializeApp, deleteApp} = await import('firebase-admin/app');
+    const {getAuth} = await import('firebase-admin/auth');
+    const app = initializeApp({credential:cert(credential)}, 'soac-m02-readiness');
+    try {
+      await getAuth(app).listUsers(1);
+      console.log('M02 Firebase: admin connection verified');
+    } finally {
+      await deleteApp(app);
+    }
+  } catch {
+    console.log('M02 Firebase: admin connection rejected');
+  }
+}
+if (process.env.RENDER === 'true') void checkFirebaseAdmin();
