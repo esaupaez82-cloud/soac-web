@@ -11,7 +11,18 @@ app.use(express.json({limit:'64kb'}));
 app.get('/health', (_req, res) => res.status(204).end());
 app.all('/api/auth', auth);
 app.all('/api/m02', m02);
-app.listen(Number(process.env.PORT || 10000), '0.0.0.0');
+const port = Number(process.env.PORT || 10000);
+app.listen(port, '0.0.0.0', async () => {
+  if (process.env.RENDER !== 'true') return;
+  try {
+    const response = await fetch('http://127.0.0.1:' + port + '/health', {
+      redirect:'manual', signal:AbortSignal.timeout(5000)
+    });
+    console.log('M02 route: internal health ' + response.status);
+  } catch {
+    console.log('M02 route: internal health unavailable');
+  }
+});
 
 async function checkPrivateDatabase() {
   if (!process.env.SOAC_M02_DATABASE_URL) {
