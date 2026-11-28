@@ -19,9 +19,10 @@
 </div>
 <div class="actions"><button>Calcular</button></div><p id="error" role="alert"></p>
 </form></section>
+<section id="history" hidden><h2>Cotizaciones guardadas</h2><p id="save-status" role="status"></p><ul id="quotes"></ul></section>
 <section id="result" hidden><h2>Simulación de pago</h2><dl id="summary"></dl>
 <p id="note"></p><div class="table"><table><thead><tr><th>Mes</th><th>Capital</th><th>Interés</th><th>GPS</th><th>Pago</th><th>Saldo</th></tr></thead><tbody id="payments"></tbody></table></div>
-<div class="actions"><button id="print">Imprimir o guardar PDF</button></div></section>
+<div class="actions"><button id="save" hidden>Guardar cotización</button> <button id="print">Imprimir o guardar PDF</button></div></section>
 </main>
 <script type="module">
 import {terms, gps, referenceDownPercent, quoteFinancing} from './financiamiento-calculo.mjs';
@@ -31,6 +32,8 @@ const format=new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN'});
 const money=value=>format.format(value);
 const session=await fetch('/api/auth?action=session',{cache:'no-store'});
 if(!session.ok){location.replace('/firebase-login.html');throw Error('Sesión requerida');}
+const account=await session.json();
+let simulation;
 const folio=new URLSearchParams(location.search).get('folio');
 if(folio){el('case').textContent='Folio Centro Digital · '+folio.slice(0,200);el('case').hidden=false;}
 function update(){
@@ -51,6 +54,7 @@ function update(){
  const price=fields.price.valueAsNumber;
  el('minimum').textContent='Referencia: '+percent+'%'+(price>0?' · '+money(price*percent/100):'');
  el('result').hidden=true;
+ simulation=undefined;
 }
 form.addEventListener('input',update);
 form.onsubmit=event=>{
@@ -58,12 +62,19 @@ form.onsubmit=event=>{
  el('error').textContent='';
  const input=Object.fromEntries(new FormData(form));
  try{
-  const quote=quoteFinancing({...input,year:Number(input.year),price:Number(input.price),down:Number(input.down),
+  const terms={...input,year:Number(input.year),price:Number(input.price),down:Number(input.down),
    months:Number(input.months),monthlyRate:input.monthlyRate===''?NaN:Number(input.monthlyRate),
-   openingPercent:input.openingPercent===''?NaN:Number(input.openingPercent),insurance:input.insurance===''?null:Number(input.insurance)});
+   openingPercent:input.openingPercent===''?NaN:Number(input.openingPercent),insurance:input.insurance===''?null:Number(input.insurance)};
+  const quote=quoteFinancing(terms);
+  simulation=terms;
+  renderQuote(terms,quote);
+  el('save').hidden=!folio||account.write!==true;
+ }catch(error){el('error').textContent=error.message;el('result').hidden=true;}
+};
+function renderQuote(input,quote){
   const summary=el('summary');
   summary.replaceChildren();
-  for(const [label,value] of [['Esquema',input.lender],['Año del vehículo',input.year],['Precio',money(+input.price)],['Enganche',money(+input.down)],['Plazo',input.months+' meses'],['Monto financiado',money(quote.principal)],['Tasa mensual sobre saldo insoluto',quote.rate+'%'],['Comisión de apertura',money(quote.commission)],['Primer pago mensual estimado',money(quote.payments[0].total)],['Pago inicial estimado'+(input.insurance===''?' sin seguro':''),money(quote.initial)]]){
+  for(const [label,value] of [['Esquema',input.lender],['Año del vehículo',input.year],['Precio',money(+input.price)],['Enganche',money(+input.down)],['Plazo',input.months+' meses'],['Monto financiado',money(quote.principal)],['Tasa mensual sobre saldo insoluto',quote.rate+'%'],['Comisión de apertura',money(quote.commission)],['Primer pago mensual estimado',money(quote.payments[0].total)],['Pago inicial estimado'+(input.insurance===null?' sin seguro':''),money(quote.initial)]]){
    const dt=document.createElement('dt'), dd=document.createElement('dd');
    dt.textContent=label;dd.textContent=value;summary.append(dt,dd);
   }
@@ -76,8 +87,52 @@ form.onsubmit=event=>{
    for(const value of [row.period,...[row.capital,row.interest,row.gps,row.total,row.balance].map(money)])tr.insertCell().textContent=value;
   }
   el('result').hidden=false;
- }catch(error){el('error').textContent=error.message;el('result').hidden=true;}
+
+}
+async function quoteRequest(body){
+ const response=await fetch('/api/cotizaciones?folio='+encodeURIComponent(folio),body===undefined?{cache:'no-store'}:{
+  method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)
+ });
+ if(response.status===401){location.replace('/firebase-login.html');throw Error('Sesión requerida');}
+ const result=await response.json();
+ if(!response.ok)throw Error(result.error||'No se pudo acceder a las cotizaciones.');
+ return result;
+}
+async function loadQuotes(){
+ const {quotes}=await quoteRequest();
+ const list=el('quotes');
+ list.replaceChildren();
+ if(!quotes.length){const entry=document.createElement('li');entry.textContent='Aún no hay cotizaciones guardadas.';list.append(entry);}
+ for(const item of quotes){
+  const entry=document.createElement('li');
+  const button=document.createElement('button');
+  button.type='button';
+  button.textContent=item.terms.lender+' · '+item.terms.months+' meses · '+new Date(item.created_at).toLocaleString('es-MX',{timeZone:'America/Mexico_City'});
+  button.onclick=()=>{
+   simulation=undefined;
+   el('save').hidden=true;
+   renderQuote(item.terms,item.result);
+   el('save-status').textContent='Cotización recuperada · '+item.id;
+  };
+  entry.append(button);
+  list.append(entry);
+ }
+}
+el('save').onclick=async()=>{
+ if(!simulation||el('save').disabled)return;
+ const current=simulation;
+ el('save').disabled=true;
+ try{
+  const saved=await quoteRequest(current);
+  el('save-status').textContent='✓ Cotización guardada · '+saved.id;
+  await loadQuotes();
+ }catch(error){el('save-status').textContent=error.message;}
+ finally{el('save').disabled=false;}
 };
+if(folio){
+ el('history').hidden=false;
+ loadQuotes().catch(error=>{el('save-status').textContent=error.message;});
+}
 el('print').onclick=()=>window.print();
 update();
 </script></html>
