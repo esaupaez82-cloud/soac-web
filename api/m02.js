@@ -1,6 +1,7 @@
 import {database, session} from '../lib/m02-providers.js';
 import {handleJson, failure} from '../lib/m02-session.js';
 
+import {prepareDraft} from '../lib/m02-drafts.js';
 import {writeFicha} from '../lib/m02-writes.js';
 
 export default function m02(req, res) {
@@ -13,7 +14,9 @@ export default function m02(req, res) {
       session.requireOrigin(req);
       if (!user.write) throw failure(403, 'La cuenta tiene acceso de consulta.');
       if (!req.is('application/json')) throw failure(415, 'Formato inválido.');
-      return writeFicha(database, user.uid, params.get('action') || 'edit', req.body);
+      const action = params.get('action') || 'edit';
+      if (action === 'draft') return prepareDraft(database, req.body);
+      return writeFicha(database, user.uid, action, req.body);
     }
     if (req.method !== 'GET') throw failure(405, 'Método no permitido.');
     const source = params.get('source') || 'main';
