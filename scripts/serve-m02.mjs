@@ -99,6 +99,10 @@ async function checkTestFicha() {
       ['5500000099']
     );
     console.log('M02 test ficha: matches=' + rows[0].matched + ' total=' + rows[0].total);
+    const audit = await database.query(
+      "SELECT count(*)::int AS creates, count(DISTINCT ficha_id)::int AS distinct_records FROM soac_m02.audit_events WHERE action = 'create'"
+    );
+    console.log('M02 create audit: saves=' + audit.rows[0].creates + ' distinct=' + audit.rows[0].distinct_records);
   } catch {
     console.log('M02 test ficha: verification unavailable');
   }
