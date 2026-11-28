@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="es-MX">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Inventario · SOAC</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f3f3f3;color:#212124;font:16px system-ui,sans-serif}main{max-width:68rem;margin:auto;padding:clamp(1rem,4vw,2rem)}header,section,dialog{background:white;border:1px solid #dedee2;border-radius:1rem;padding:1rem}header{border-top:4px solid #b40022;margin-bottom:1rem}button,input,select{min-height:2.6rem;padding:.55rem;border:1px solid #aaa;border-radius:.5rem;font:inherit}button{cursor:pointer;background:white}.primary{background:#a90020;color:white}.bar{display:flex;gap:.7rem;align-items:center;flex-wrap:wrap}#search{flex:1}#units{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,16rem),1fr));gap:.75rem}article{border:1px solid #dedee2;padding:1rem;border-radius:.75rem}article h2{font-size:1.05rem}dialog{width:min(94vw,30rem)}dialog::backdrop{background:#19191c88}label{display:grid;gap:.25rem;margin:.75rem 0}#error{color:#99001f}
+</style>
+<main>
+<header><a href="/modulo-02.html">Centro Digital</a><h1>Inventario</h1><a href="https://automotriz-clasa-sitio-publico.vercel.app/catalogo/" target="_blank" rel="noopener noreferrer">Ver catálogo público</a></header>
+<section aria-label="Unidades">
+<div class="bar"><input id="search" placeholder="Marca, modelo, año o folio" aria-label="Buscar unidad"><button id="reload">Actualizar</button></div>
+<p id="permissions"></p><p id="status" role="status">Cargando unidades…</p><div id="units"></div>
+</section>
+</main>
+<dialog id="editor"><form id="form">
+<h2 id="title"></h2><p id="folio"></p>
+<label>Precio de venta en MXN<input name="precio" type="number" min="1" step="1"></label>
+<label>Estado comercial<select name="estado"></select></label>
+<label>Publicación<select name="publicar"></select></label>
+<p id="error" role="alert"></p>
+<div class="bar"><button id="save" class="primary" type="submit">Guardar unidad</button><button id="close" type="button">Cerrar</button></div>
+</form></dialog>
+<script type="module">
+const el=id=>document.getElementById(id);
+const form=el('form'), editor=el('editor'), status=el('status');
+let units=[], editable=false, selected, baseline, saving=false;
+
+function add(parent,tag,value){
+ const node=document.createElement(tag);
+ node.textContent=value;
+ parent.append(node);
+ return node;
+}
+async function request(body){
+ const response=await fetch('/api/inventario',body===undefined?{cache:'no-store'}:{
+  method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)
+ });
+ if(response.status===401){location.replace('/firebase-login.html');throw Error('Inicia sesión en SOAC.');}
+ const data=await response.json();
+ if(!response.ok)throw Error(data.error||'No se pudo completar la operación.');
+ return data;
+}
+function render(){
+ const grid=el('units'), term=el('search').value.trim().toLocaleLowerCase('es-MX');
+ const matches=units.filter(unit=>[unit.folio,unit.marca,unit.modelo,unit.anio].join(' ').toLocaleLowerCase('es-MX').includes(term));
+ grid.replaceChildren();
+ for(const unit of matches){
+  const card=add(grid,'article','');
+  add(card,'h2',[unit.marca,unit.modelo,unit.anio].filter(Boolean).join(' '));
+  add(card,'p',unit.folio+' · '+(unit.estado||'Sin estado'));
+  add(card,'p',unit.precio||'Precio pendiente');
+  add(card,'button',editable?'Editar unidad':'Ver unidad').onclick=()=>open(unit);
+ }
+ return matches.length;
+}
+async function load(){
+ try{
+  const data=await request();
+  units=data.vehicles;
+  editable=data.write===true;
+  el('permissions').textContent=editable?'':'Acceso de consulta.';
+  status.textContent=render()+' unidades';
+ }catch(error){status.textContent=error.message;}
+}
+function select(input,existing,allowed){
+ input.replaceChildren();
+ for(const value of new Set([existing,...allowed])){
+  const option=add(input,'option',value||'Sin definir');
+  option.value=value;
+ }
+ input.value=existing;
+ input.disabled=!editable;
+}
+function open(unit){
+ selected=unit;
+ el('title').textContent=[unit.marca,unit.modelo,unit.anio].filter(Boolean).join(' ');
+ el('folio').textContent=unit.folio;
+ const price=unit.precio.replace(/[$,\s]/g,'');
+ const priceInput=form.elements.precio;
+ priceInput.value=/^\d+(\.\d+)?$/.test(price)?price:'';
+ priceInput.readOnly=!editable;
+ select(form.elements.estado,unit.estado,['DISPONIBLE','APARTADO','VENDIDO','NO PUBLICAR']);
+ select(form.elements.publicar,unit.publicar,['SI','NO']);
+ baseline={precio:priceInput.value,estado:form.elements.estado.value,publicar:form.elements.publicar.value};
+ el('save').hidden=!editable;
+ el('error').textContent='';
+ editor.showModal();
+}
+form.addEventListener('submit',async event=>{
+ event.preventDefault();
+ if(!editable||saving)return;
+ const data=Object.fromEntries(new FormData(form));
+ const changes=Object.fromEntries(Object.entries(data).filter(([key,value])=>value!==baseline[key]));
+ if(!Object.keys(changes).length){el('error').textContent='No hay cambios para guardar.';return;}
+ if('precio' in changes)changes.precio=Number(changes.precio);
+ saving=true;
+ el('save').disabled=el('close').disabled=true;
+ try{
+  const result=await request({previous:selected,changes});
+  if(!result.ok||result.folio!==selected.folio)throw Error('El servidor no confirmó el guardado.');
+  editor.close();
+  await load();
+  status.textContent='✓ Unidad guardada · '+result.folio+' · '+status.textContent;
+ }catch(error){el('error').textContent=error.message;}
+ finally{saving=false;el('save').disabled=el('close').disabled=false;}
+});
+el('search').oninput=()=>{status.textContent=render()+' unidades';};
+el('reload').onclick=load;
+el('close').onclick=()=>editor.close();
+editor.addEventListener('cancel',event=>{if(saving)event.preventDefault();});
+void load();
+</script>
+</html>
